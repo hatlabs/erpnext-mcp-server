@@ -512,7 +512,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return {
           content: [{
             type: "text",
-            text: `Created ${doctype}: ${result.name}\n\n${JSON.stringify(result, null, 2)}`
+            text: JSON.stringify({
+              status: "success",
+              doctype: doctype,
+              name: result.name,
+              docstatus: result.docstatus
+            })
           }]
         };
       } catch (error: any) {
@@ -553,7 +558,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return {
           content: [{
             type: "text",
-            text: `Updated ${doctype} ${name}\n\n${JSON.stringify(result, null, 2)}`
+            text: JSON.stringify({
+              status: "success",
+              doctype: doctype,
+              name: result.name,
+              docstatus: result.docstatus
+            })
           }]
         };
       } catch (error: any) {
