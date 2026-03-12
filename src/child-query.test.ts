@@ -164,4 +164,52 @@ describe("buildChildQueryArgs", () => {
       }),
     ).toThrow("expected [field, operator, value]");
   });
+
+  it("coerces empty parentFields array to default ['name']", () => {
+    const args = buildChildQueryArgs({
+      parentDoctype: "Purchase Order",
+      childDoctype: "Purchase Taxes and Charges",
+      parentFields: [],
+      childFields: ["account_head"],
+    });
+    expect(args.fields).toEqual(["name", "`tabPurchase Taxes and Charges`.account_head"]);
+  });
+
+  it("coerces string parentFields to array", () => {
+    const args = buildChildQueryArgs({
+      parentDoctype: "BOM",
+      childDoctype: "BOM Item",
+      parentFields: "total_cost" as unknown as string[],
+      childFields: ["item_code"],
+    });
+    expect(args.fields).toEqual(["total_cost", "`tabBOM Item`.item_code"]);
+  });
+
+  it("handles non-array parentFields gracefully", () => {
+    const args = buildChildQueryArgs({
+      parentDoctype: "BOM",
+      childDoctype: "BOM Item",
+      parentFields: 42 as unknown as string[],
+    });
+    expect(args.fields).toEqual(["name"]);
+  });
+
+  it("coerces string childFields to array", () => {
+    const args = buildChildQueryArgs({
+      parentDoctype: "BOM",
+      childDoctype: "BOM Item",
+      childFields: "item_code" as unknown as string[],
+    });
+    expect(args.fields).toEqual(["name", "`tabBOM Item`.item_code"]);
+  });
+
+  it("handles non-array childFilters with error", () => {
+    expect(() =>
+      buildChildQueryArgs({
+        parentDoctype: "BOM",
+        childDoctype: "BOM Item",
+        childFilters: "not an array" as unknown as Array<[string, string, string]>,
+      }),
+    ).toThrow("Invalid child_filters");
+  });
 });

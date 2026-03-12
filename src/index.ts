@@ -108,9 +108,9 @@ class ERPNextClient {
   async getChildDocList(
     parentDoctype: string,
     childDoctype: string,
-    parentFields?: string[],
-    childFields?: string[],
-    childFilters?: Array<[string, string, string]>,
+    parentFields?: unknown,
+    childFields?: unknown,
+    childFilters?: unknown,
     parentFilters?: AnyRecord,
     limit?: number,
   ): Promise<any[]> {

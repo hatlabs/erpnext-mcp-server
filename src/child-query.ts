@@ -32,11 +32,37 @@ export function validateChildFilter(filter: unknown): asserts filter is [string,
 export interface ChildQueryArgs {
   parentDoctype: string;
   childDoctype: string;
-  parentFields?: string[];
-  childFields?: string[];
-  childFilters?: Array<[string, string, string]>;
+  parentFields?: unknown;
+  childFields?: unknown;
+  childFilters?: unknown;
   parentFilters?: AnyRecord;
   limit?: number;
+}
+
+/**
+ * Coerce an unknown value to a string array.
+ * Handles: undefined/null → undefined, string → [string], array → array, other → undefined.
+ */
+function toStringArray(value: unknown): string[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.map(String);
+  return undefined;
+}
+
+/**
+ * Coerce an unknown value to an array of [string, string, string] filter triples.
+ * Each element is validated by validateChildFilter.
+ */
+function toFilterArray(value: unknown): Array<[string, string, string]> | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) {
+    throw new Error(
+      `Invalid child_filters: expected array of [field, operator, value] triples, got ${typeof value}`,
+    );
+  }
+  value.forEach((f) => validateChildFilter(f));
+  return value as Array<[string, string, string]>;
 }
 
 export const DEFAULT_LIMIT = 100;
@@ -66,15 +92,17 @@ export function buildChildQueryArgs(input: ChildQueryArgs): AnyRecord {
   validateDocTypeName(input.parentDoctype, "parent_doctype");
   validateDocTypeName(input.childDoctype, "child_doctype");
 
-  const resolvedParentFields = input.parentFields || ["name"];
+  const coercedParentFields = toStringArray(input.parentFields);
+  const resolvedParentFields =
+    coercedParentFields && coercedParentFields.length > 0 ? coercedParentFields : ["name"];
   resolvedParentFields.forEach((f) => validateFieldName(f, "parent_fields"));
 
-  const resolvedChildFields = input.childFields || [];
+  const resolvedChildFields = toStringArray(input.childFields) || [];
   resolvedChildFields.forEach((f) => validateFieldName(f, "child_fields"));
 
-  if (input.childFilters) {
-    input.childFilters.forEach((filter) => {
-      validateChildFilter(filter);
+  const resolvedChildFilters = toFilterArray(input.childFilters);
+  if (resolvedChildFilters) {
+    resolvedChildFilters.forEach((filter) => {
       validateFieldName(filter[0], "child_filters field");
     });
   }
@@ -86,9 +114,9 @@ export function buildChildQueryArgs(input: ChildQueryArgs): AnyRecord {
     ...resolvedChildFields.map((f) => `\`${childTable}\`.${f}`),
   ];
 
-  const childFilterTuples: Array<[string, string, string, string]> = (input.childFilters || []).map(
-    ([field, op, value]) => [input.childDoctype, field, op, value],
-  );
+  const childFilterTuples: Array<[string, string, string, string]> = (
+    resolvedChildFilters || []
+  ).map(([field, op, value]) => [input.childDoctype, field, op, value]);
 
   const parentFilterTuples = input.parentFilters
     ? parentFiltersToTuples(input.parentDoctype, input.parentFilters)
