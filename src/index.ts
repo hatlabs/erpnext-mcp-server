@@ -23,6 +23,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import axios, { AxiosInstance } from "axios";
 import { buildChildQueryArgs } from "./child-query.js";
+import { coerceStringArray, coerceObject, coerceNumber } from "./coerce.js";
 import { stripDocument } from "./strip.js";
 
 type AnyRecord = Record<string, any>;
@@ -108,18 +109,20 @@ class ERPNextClient {
   async getChildDocList(
     parentDoctype: string,
     childDoctype: string,
-    parentFields?: string[],
-    childFields?: string[],
-    childFilters?: Array<[string, string, string]>,
+    parentFields?: unknown,
+    childFields?: unknown,
+    childFilters?: unknown,
     parentFilters?: AnyRecord,
     limit?: number,
   ): Promise<any[]> {
+    // Type casts are safe: buildChildQueryArgs validates at runtime.
+    // ChildQueryArgs will accept unknown directly after PR #10 merges.
     const args = buildChildQueryArgs({
       parentDoctype,
       childDoctype,
-      parentFields,
-      childFields,
-      childFilters,
+      parentFields: parentFields as string[] | undefined,
+      childFields: childFields as string[] | undefined,
+      childFilters: childFilters as Array<[string, string, string]> | undefined,
       parentFilters,
       limit,
     });
@@ -644,9 +647,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         throw new McpError(ErrorCode.InvalidParams, "Doctype is required");
       }
 
-      const fields = request.params.arguments?.fields as string[] | undefined;
-      const filters = request.params.arguments?.filters as AnyRecord | undefined;
-      const limit = request.params.arguments?.limit as number | undefined;
+      const fields = coerceStringArray(request.params.arguments?.fields);
+      const filters = coerceObject(request.params.arguments?.filters);
+      const limit = coerceNumber(request.params.arguments?.limit);
 
       try {
         const documents = await erpnext.getDocList(doctype, filters, fields, limit);
@@ -681,13 +684,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         );
       }
 
-      const parentFields = request.params.arguments?.parent_fields as string[] | undefined;
-      const childFields = request.params.arguments?.child_fields as string[] | undefined;
-      const childFilters = request.params.arguments?.child_filters as
-        | Array<[string, string, string]>
-        | undefined;
-      const parentFilters = request.params.arguments?.parent_filters as AnyRecord | undefined;
-      const limit = request.params.arguments?.limit as number | undefined;
+      const parentFields = request.params.arguments?.parent_fields;
+      const childFields = request.params.arguments?.child_fields;
+      const childFilters = request.params.arguments?.child_filters;
+      const parentFilters = coerceObject(request.params.arguments?.parent_filters);
+      const limit = coerceNumber(request.params.arguments?.limit);
 
       try {
         const rows = await erpnext.getChildDocList(
@@ -717,7 +718,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     case "create_document": {
       const doctype = request.params.arguments?.doctype;
-      const data = request.params.arguments?.data as AnyRecord | undefined;
+      const data = coerceObject(request.params.arguments?.data);
       if (typeof doctype !== "string" || !doctype || !data) {
         throw new McpError(ErrorCode.InvalidParams, "Doctype and data are required");
       }
@@ -753,7 +754,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "update_document": {
       const doctype = request.params.arguments?.doctype;
       const name = request.params.arguments?.name;
-      const data = request.params.arguments?.data as AnyRecord | undefined;
+      const data = coerceObject(request.params.arguments?.data);
       if (typeof doctype !== "string" || !doctype || typeof name !== "string" || !name || !data) {
         throw new McpError(ErrorCode.InvalidParams, "Doctype, name, and data are required");
       }
@@ -792,7 +793,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         throw new McpError(ErrorCode.InvalidParams, "Report name is required");
       }
 
-      const filters = request.params.arguments?.filters as AnyRecord | undefined;
+      const filters = coerceObject(request.params.arguments?.filters);
 
       try {
         const result = await erpnext.runReport(reportName, filters);
@@ -866,7 +867,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         throw new McpError(ErrorCode.InvalidParams, "Method is required");
       }
 
-      const args = request.params.arguments?.args as AnyRecord | undefined;
+      const args = coerceObject(request.params.arguments?.args);
       const httpMethod = (request.params.arguments?.http_method === "GET" ? "GET" : "POST") as
         | "GET"
         | "POST";
